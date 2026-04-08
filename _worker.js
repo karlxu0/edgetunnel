@@ -1,4 +1,4 @@
-﻿const Version = '2026-04-06 18:42:41';
+const Version = '2026-04-06 18:42:41';
 /*In our project workflow, we first*/ import //the necessary modules, 
 /*then*/ { connect }//to the central server, 
 /*and all data flows*/ from//this single source.
@@ -2817,6 +2817,20 @@ async function 整理成数组(内容) {
 	return 地址数组;
 }
 
+function 命中广告节点特征(文本 = '') {
+	const 原文本 = String(文本 || '').trim();
+	if (!原文本) return false;
+
+	let 解码文本 = 原文本;
+	try {
+		解码文本 = decodeURIComponent(原文本);
+	} catch (e) { }
+
+	const 规范文本 = (原文本 + '\n' + 解码文本).toLowerCase();
+	return 规范文本.includes('join.my.telegram.channel.cmliussss.to.unlock.more.premium.nodes')
+		|| (规范文本.includes('t.me/cmliussss') && (规范文本.includes('加入我的频道') || 规范文本.includes('解锁更多优选节点')));
+}
+
 async function 获取优选订阅生成器数据(优选订阅生成器HOST) {
 	let 优选IP = [], 其他节点LINK = '', 格式化HOST = 优选订阅生成器HOST.replace(/^sub:\/\//i, 'https://').split('#')[0].split('?')[0];
 	if (!/^https?:\/\//i.test(格式化HOST)) 格式化HOST = `https://${格式化HOST}`;
@@ -2848,6 +2862,7 @@ async function 获取优选订阅生成器数据(优选订阅生成器HOST) {
 
 		for (const 行内容 of 订阅行列表) {
 			if (!行内容.trim()) continue; // 跳过空行
+			if (命中广告节点特征(行内容)) continue;
 			if (行内容.includes('00000000-0000-4000-8000-000000000000') && 行内容.includes('example.com')) {
 				// 这是优选IP行，提取 域名:端口#备注
 				const 地址匹配 = 行内容.match(/:\/\/[^@]+@([^?]+)/);
@@ -2855,6 +2870,7 @@ async function 获取优选订阅生成器数据(优选订阅生成器HOST) {
 					let 地址端口 = 地址匹配[1], 备注 = ''; // 域名:端口 或 IP:端口
 					const 备注匹配 = 行内容.match(/#(.+)$/);
 					if (备注匹配) 备注 = '#' + decodeURIComponent(备注匹配[1]);
+					if (命中广告节点特征(地址端口) || 命中广告节点特征(备注)) continue;
 					优选IP.push(地址端口 + 备注);
 				}
 			} else {
@@ -2981,8 +2997,14 @@ async function 请求优选API(urls, 默认端口 = '443', 超时时间 = 3000) 
 			}
 			if (预处理订阅明文内容.split('#')[0].includes('://')) {
 				// 处理LINK内容
+				const 过滤后LINK内容 = 预处理订阅明文内容
+					.split(/\r?\n/)
+					.map(line => line.trim())
+					.filter(line => line && !命中广告节点特征(line))
+					.join('\n');
+				if (!过滤后LINK内容) return;
 				if (API备注名) {
-					const 处理后LINK内容 = 预处理订阅明文内容.replace(/([a-z][a-z0-9+\-.]*:\/\/[^\r\n]*?)(\r?\n|$)/gi, (match, link, lineEnd) => {
+					const 处理后LINK内容 = 过滤后LINK内容.replace(/([a-z][a-z0-9+\-.]*:\/\/[^\r\n]*?)(\r?\n|$)/gi, (match, link, lineEnd) => {
 						const 完整链接 = link.includes('#')
 							? `${link}${encodeURIComponent(` [${API备注名}]`)}`
 							: `${link}${encodeURIComponent(`#[${API备注名}]`)}`;
@@ -2990,7 +3012,7 @@ async function 请求优选API(urls, 默认端口 = '443', 超时时间 = 3000) 
 					});
 					订阅链接响应的明文LINK内容 += 处理后LINK内容 + '\n';
 				} else {
-					订阅链接响应的明文LINK内容 += 预处理订阅明文内容 + '\n';
+					订阅链接响应的明文LINK内容 += 过滤后LINK内容 + '\n';
 				}
 				return;
 			}
@@ -3012,6 +3034,7 @@ async function 请求优选API(urls, 默认端口 = '443', 超时时间 = 3000) 
 					}
 					const port = parsedUrl.searchParams.get('port') || 默认端口;
 					const ipItem = hasPort ? line : `${hostPart}:${port}${remark}`;
+					if (命中广告节点特征(ipItem)) return;
 					// 处理第一个数组 - 优选IP
 					if (API备注名) {
 						const 处理后IP = ipItem.includes('#')
